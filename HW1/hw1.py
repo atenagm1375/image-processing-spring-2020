@@ -40,13 +40,6 @@ def exe1():
     """
         Remove noise from images 1 to 4 with proper filters.
     """
-    masked_fourier = shifted_transformed_img1 * mask
-    filtered_img1 = idft(masked_fourier)
-    mean_filter = (1 / 4) * np.ones((2, 2), dtype=np.uint8)
-    filtered_img1 = cv2.filter2D(filtered_img1, -1, mean_filter)
-
-    plot_before_after(img1, filtered_img1)
-
     img2 = cv2.imread("2.jpg", 0)
     shifted_transformed_img2, magnitude_spectrum = dft(img2)
 
