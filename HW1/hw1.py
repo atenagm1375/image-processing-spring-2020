@@ -111,24 +111,32 @@ def image2():
 
 
 def image3():
-    img = cv2.imread("3.jpg", 0)
-    shifted_transformed_img, magnitude_spectrum = dft(img)
-    plot_before_after(img, magnitude_spectrum, True)
+    img_3ch = cv2.imread("3.jpg")
+    final_img = np.zeros(img_3ch.shape, dtype=np.uint8)
+    for i in range(0, 3):
+        img = img_3ch[:, :, i]
+        shifted_transformed_img, magnitude_spectrum = dft(img)
+        plot_before_after(img, magnitude_spectrum, True)
 
-    w, h = img.shape
-    mask = np.ones(img.shape, dtype=np.uint8)
-    # TODO change these to a gaussian notch
-    mask[117 - 5:117 + 5, 95 - 5:95 + 5] = 0
-    mask[178 - 5:178 + 5, 205 - 5:205 + 5] = 0
+        w, h = img.shape
+        mask = np.ones(img.shape, dtype=np.uint8)
+        # TODO change these to a gaussian notch
+        mask[117 - 5:117 + 5, 95 - 5:95 + 5] = 0
+        mask[178 - 5:178 + 5, 205 - 5:205 + 5] = 0
+        if i == 2:
+            mask[88 - 5:88 + 5, 44 - 5:44 + 5] = 0
+            mask[210 - 5:210 + 5, 254 - 5:254 + 5] = 0
 
-    plt.imshow(magnitude_spectrum * mask, cmap='gray')
-    plt.show()
+        plt.imshow(magnitude_spectrum * mask, cmap='gray')
+        plt.show()
 
-    masked_fourier = shifted_transformed_img * mask
-    filtered_img = idft(masked_fourier)
-    filtered_img = cv2.blur(filtered_img, (2, 2))
+        masked_fourier = shifted_transformed_img * mask
+        filtered_img = idft(masked_fourier)
+        # filtered_img = cv2.blur(filtered_img, (2, 2))
 
-    plot_before_after(img, filtered_img)
+        plot_before_after(img, filtered_img)
+        final_img[:, :, i] = filtered_img
+    plot_before_after(img_3ch, final_img)
 
 
 def image4():
