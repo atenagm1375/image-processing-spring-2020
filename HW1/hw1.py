@@ -36,10 +36,22 @@ def idft(img):
     return filtered_img
 
 
-def fspecial(shape=(3, 3), sigma=0.5):
+def gaussian_lowpass_filter(shape=(3, 3), sigma=0.5):
     m, n = [(ss - 1.) / 2. for ss in shape]
     y, x = np.ogrid[-m:m + 1, -n:n + 1]
-    h = np.exp(-(x * x + y * y) / (2. * sigma * sigma))
+    h = np.exp(-(x * x + y * y) / (2. * sigma ** 2))
+    h[h < np.finfo(h.dtype).eps * h.max()] = 0
+    sumh = h.sum()
+    if sumh != 0:
+        h /= sumh
+    return h
+
+
+def gaussian_band_reject(shape=(3, 3), sigma=0.5, w=1):
+    m, n = [(ss - 1.) / 2. for ss in shape]
+    y, x = np.ogrid[-m:m + 1, -n:n + 1]
+    h = 1 - np.exp(-(((x * x + y * y) - sigma**2) /
+                     (np.sqrt(x * x + y * y) * w))**2)
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
     sumh = h.sum()
     if sumh != 0:
@@ -50,105 +62,117 @@ def fspecial(shape=(3, 3), sigma=0.5):
 def make_younger(img, sigma):
     transformed_img, magnitude_spectrum = dft(img)
     plot_before_after(img, magnitude_spectrum, True)
-    h = cv2.normalize(fspecial(img.shape, sigma=sigma),
+    h = cv2.normalize(gaussian_lowpass_filter(img.shape, sigma=sigma),
                       None, 0, 1, cv2.NORM_MINMAX)
     transformed_img = transformed_img * h
     filtered_img = idft(transformed_img)
     return filtered_img
 
 
-def exe1():
-    """
-        Remove noise from images 1 to 4 with proper filters.
-    """
-    img1 = cv2.imread('1.jpg', 0)
-    shifted_transformed_img1, magnitude_spectrum = dft(img1)
+def image1():
+    img = cv2.imread('1.jpg', 0)
+    shifted_transformed_img, magnitude_spectrum = dft(img)
 
-    plot_before_after(img1, magnitude_spectrum, True)
+    plot_before_after(img, magnitude_spectrum, True)
 
-    w, h = img1.shape
-    mask = np.ones(img1.shape, dtype=np.uint8)
-    for i in range(10, w, 45):
-        for j in range(20, h, 70):
-            mask[i:i + 15, j:j + 20] = 0
-    # mask[34 - 5:34 + 5, 66 - 5:66 + 5] = 0
-    # mask[34 - 5:34 + 5, 42 - 5:42 + 5] = 0
-    # mask[34 - 5:34 + 5, h // 2 - 5:h // 2 + 5] = 0
-    # mask[98 - 5:98 + 5, 66 - 5:66 + 5] = 0
-    # mask[98 - 5:98 + 5, 42 - 5:42 + 5] = 0
-    # mask[159 - 5:159 + 5, 66 - 5:66 + 5] = 0
-    # mask[159 - 5:159 + 5, 42 - 5:42 + 5] = 0
-    # mask[159 - 5:159 + 5, h // 2 - 5:h // 2 + 5] = 0
-    # mask[34 - 5:34 + 5, 192 - 5:192 + 5] = 0
-    # mask[34 - 5:34 + 5, 218 - 5:218 + 5] = 0
-    # mask[98 - 5:98 + 5, 192 - 5:192 + 5] = 0
-    # mask[98 - 5:98 + 5, 218 - 5:218 + 5] = 0
-    # mask[159 - 5:159 + 5, 192 - 5:192 + 5] = 0
-    # mask[159 - 5:159 + 5, 218 - 5:218 + 5] = 0
-    plt.imshow(magnitude_spectrum * mask, cmap='gray')
+    # mask = cv2.normalize(gaussian_band_reject(
+    #     img.shape, 88, 9), None, 0, 1, cv2.NORM_MINMAX)
+    mask = cv2.normalize(gaussian_lowpass_filter(
+        img.shape, 17), None, 0, 1, cv2.NORM_MINMAX)
+    # mask = np.ones(img.shape, dtype=np.uint8)
+
+    plt.imshow(mask * magnitude_spectrum, cmap='gray')
     plt.show()
+    filtered_img = idft(mask * shifted_transformed_img)
 
-    masked_fourier = shifted_transformed_img1 * mask
-    filtered_img1 = idft(masked_fourier)
-    mean_filter = (1 / 4) * np.ones((2, 2), dtype=np.uint8)
-    filtered_img1 = cv2.filter2D(filtered_img1, -1, mean_filter)
+    plot_before_after(img, filtered_img)
 
-    plot_before_after(img1, filtered_img1)
 
-    img2 = cv2.imread("2.jpg", 0)
-    shifted_transformed_img2, magnitude_spectrum = dft(img2)
+def image2():
+    img = cv2.imread("2.jpg", 0)
+    shifted_transformed_img, magnitude_spectrum = dft(img)
 
-    plot_before_after(img2, magnitude_spectrum, True)
+    # plot_before_after(img2, magnitude_spectrum, True)
 
-    w, h = img2.shape
-    mask = np.ones(img2.shape, dtype=np.uint8)
-    mask[35 - 4:35 + 4, h // 2 - 4:h // 2 + 4] = 0
-    mask[58 - 4:58 + 4, h // 2 - 4:h // 2 + 4] = 0
-    mask[108 - 4:108 + 4, h // 2 - 4:h // 2 + 4] = 0
-    mask[135 - 4:135 + 4, h // 2 - 4:h // 2 + 4] = 0
-    mask[58 - 4:58 + 4, 10 - 4:10 + 4] = 0
-    mask[108 - 4:108 + 4, 10 - 4:10 + 4] = 0
-    mask[58 - 4:58 + 4, 212 - 4:212 + 4] = 0
-    mask[108 - 4:108 + 4, 212 - 4:212 + 4] = 0
-    mask[35 - 4:35 + 4, 10 - 4:10 + 4] = 0
-    mask[135 - 4:135 + 4, 10 - 4:10 + 4] = 0
-    mask[35 - 4:35 + 4, 212 - 4:212 + 4] = 0
-    mask[135 - 4:135 + 4, 212 - 4:212 + 4] = 0
+    w, h = img.shape
+    mask = np.ones(img.shape, dtype=np.uint8)
+    # TODO change these to a rectangular gaussian
+    mask[0:w // 2 - 5, h // 2 - 2:h // 2 + 2] = 0
+    mask[w // 2 + 5:w, h // 2 - 2:h // 2 + 2] = 0
 
     plt.imshow(magnitude_spectrum * mask, cmap='gray')
     plt.show()
 
-    masked_fourier = shifted_transformed_img2 * mask
-    filtered_img2 = idft(masked_fourier)
-    mean_filter = (1 / 4) * np.ones((2, 2), dtype=np.uint8)
-    filtered_img2 = cv2.filter2D(filtered_img2, -1, mean_filter)
+    masked_fourier = shifted_transformed_img * mask
+    filtered_img = idft(masked_fourier)
+    filtered_img = cv2.blur(filtered_img, (2, 2))
 
-    plot_before_after(img2, filtered_img2)
+    plot_before_after(img, filtered_img)
 
 
-def exe2():
-    """
-        Improve the details and visibility of images 5 to 10 with spatial and
-        frequency domain operations.
-    """
+def image3():
+    img = cv2.imread("3.jpg", 0)
+    shifted_transformed_img, magnitude_spectrum = dft(img)
+    plot_before_after(img, magnitude_spectrum, True)
+
+    w, h = img.shape
+    mask = np.ones(img.shape, dtype=np.uint8)
+    # TODO change these to a gaussian notch
+    mask[117 - 5:117 + 5, 95 - 5:95 + 5] = 0
+    mask[178 - 5:178 + 5, 205 - 5:205 + 5] = 0
+
+    plt.imshow(magnitude_spectrum * mask, cmap='gray')
+    plt.show()
+
+    masked_fourier = shifted_transformed_img * mask
+    filtered_img = idft(masked_fourier)
+    filtered_img = cv2.blur(filtered_img, (2, 2))
+
+    plot_before_after(img, filtered_img)
+
+
+def image4():
     pass
 
 
-def exe3():
-    """
-        Make images 11 and 12 younger with frequency domain operators.
-    """
+def image5():
+    pass
+
+
+def image6():
+    pass
+
+
+def image7():
+    pass
+
+
+def image8():
+    pass
+
+
+def image9():
+    pass
+
+
+def image10():
+    pass
+
+
+def image11():
     img = cv2.imread("11.jpg", 0)
     younger_img = make_younger(img, 40)
     plot_before_after(img, younger_img)
 
+
+def image12():
     img = cv2.imread("12.jpg", 0)
     younger_img = make_younger(img, 32)
     plot_before_after(img, younger_img)
 
 
 def __main__(num):
-    name = "exe{}".format(num)
+    name = "image{}".format(num)
     globals()[name]()
 
 
