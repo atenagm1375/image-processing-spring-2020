@@ -85,7 +85,7 @@ def homomorphic_filtering(img, rh, rl, cutoff, c=1):
 
 def make_younger(img, sigma):
     transformed_img, magnitude_spectrum = dft(img)
-    plot_before_after(img, magnitude_spectrum, True)
+    # plot_before_after(img, magnitude_spectrum, True)
     h = cv2.normalize(gaussian_lowpass_filter(img.shape, sigma=sigma),
                       None, 0, 1, cv2.NORM_MINMAX)
     transformed_img = transformed_img * h
@@ -99,22 +99,25 @@ def image1():
 
     plot_before_after(img, magnitude_spectrum, True)
 
-    # mask = cv2.normalize(gaussian_band_reject(
-    #     img.shape, 88, 9), None, 0, 1, cv2.NORM_MINMAX)
-    mask = cv2.normalize(gaussian_lowpass_filter(
-        img.shape, 17), None, 0, 1, cv2.NORM_MINMAX)
-    # mask = np.ones(img.shape, dtype=np.uint8)
-    # w, h = img.shape
-    # mask = np.ones(img.shape, dtype=np.uint8)
-    # # TODO change these to a rectangular gaussian
-    # mask[0:w // 2 - 5, h // 2 - 2:h // 2 + 2] = 0
-    # mask[w // 2 + 5:w, h // 2 - 2:h // 2 + 2] = 0
-    # mask[w // 2 - 2:w // 2 + 2, 0:h // 2 - 5] = 0
-    # mask[w // 2 - 2:w // 2 + 2, h // 2 + 5:h] = 0
+    w, h = img.shape
+    mask = np.ones(img.shape, dtype=np.uint8)
+
+    for i in range(w):
+        if np.mean(magnitude_spectrum[i, :]) >= 9.:
+            # magnitude_spectrum[i, :] = 0
+            mask[i, :] = 0
+
+    for j in range(h):
+        if np.mean(magnitude_spectrum[:, j]) >= 9.:
+            # magnitude_spectrum[:, j] = 0
+            mask[:, j] = 0
+    mask[w // 2 - 5:w // 2 + 5, h // 2 - 5:h // 2 + 5] = 1
 
     plt.imshow(mask * magnitude_spectrum, cmap='gray')
     plt.show()
+
     filtered_img = idft(mask * shifted_transformed_img)
+    filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0)
 
     plot_before_after(img, filtered_img)
 
@@ -127,17 +130,8 @@ def image2():
 
     w, h = img.shape
     mask = np.ones(img.shape)
-    # TODO change these to a rectangular gaussian
-    mask[0:w // 2 - 5, h // 2] = 0
-    mask[0:w // 2 - 5, h // 2 + 1] = 0.3
-    mask[0:w // 2 - 5, h // 2 + 2] = 0.7
-    mask[0:w // 2 - 5, h // 2 - 2] = 0.7
-    mask[0:w // 2 - 5, h // 2 - 1] = 0.3
-    mask[w // 2 + 5:w, h // 2] = 0
-    mask[w // 2 + 5:w, h // 2 + 1] = 0.3
-    mask[w // 2 + 5:w, h // 2 + 2] = 0.7
-    mask[w // 2 + 5:w, h // 2 - 2] = 0.7
-    mask[w // 2 + 5:w, h // 2 - 1] = 0.3
+    mask[0:w // 2 - 5, h // 2 - 2:h // 2 + 2] = 0
+    mask[w // 2 + 5:w, h // 2 - 2:h // 2 + 2] = 0
 
     plt.imshow(magnitude_spectrum * mask, cmap='gray')
     plt.show()
@@ -149,23 +143,19 @@ def image2():
     plot_before_after(img, filtered_img)
 
 
-def gkern(kernlen=21, nsig=3):
-    """Returns a 2D Gaussian kernel."""
-
-    x = np.linspace(-nsig, nsig, kernlen + 1)
-    kern1d = np.diff(st.norm.cdf(x))
-    kern2d = np.outer(kern1d, kern1d)
-    return kern2d / kern2d.sum()
-
-
 def image3():
     img = cv2.imread("3.jpg", 0)
     shifted_transformed_img, magnitude_spectrum = dft(img)
-    mask = np.ones(img.shape)
-    mask[117 - 5:117 + 5, 96 - 5:96 + 5] = gkern(10, 1)
-    mask[85 - 5:85 + 5, 42 - 5:42 + 5] = gkern(10, 1)
-    mask[178 - 5:178 + 5, 204 - 5:204 + 5] = gkern(10, 1)
-    mask[210 - 5:210 + 5, 258 - 5:258 + 5] = gkern(10, 1)
+    w, h = img.shape
+    mask = np.ones((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+
+    cv2.circle(mask, (96, 117), 10, (0, 0, 0), -1)
+    cv2.circle(mask, (42, 85), 10, (0, 0, 0), -1)
+    cv2.circle(mask, (204, 178), 10, (0, 0, 0), -1)
+    cv2.circle(mask, (258, 210), 10, (0, 0, 0), -1)
+
+    mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+
     plt.imshow(magnitude_spectrum * mask, cmap='gray')
     plt.show()
     masked_fourier = shifted_transformed_img * mask
@@ -178,49 +168,85 @@ def image4():
     shifted_transformed_img, magnitude_spectrum = dft(img)
     plot_before_after(img, magnitude_spectrum, True)
 
+    w, h = img.shape
+    # mask = np.ones(img.shape)
+    # # for i in range(w):
+    # #     for j in range(h):
+    # #         if 2 * magnitude_spectrum[i, j] > 25:
+    # #             mask[i, j] = 0
+    # for i in range(w):
+    #     if np.mean(magnitude_spectrum[i, :]) >= 9.:
+    #         # magnitude_spectrum[i, :] = 0
+    #         mask[i, :] = 0
+    #
+    # for j in range(h):
+    #     if np.mean(magnitude_spectrum[:, j]) >= 9.:
+    #         # magnitude_spectrum[:, j] = 0
+    #         mask[:, j] = 0
+    # mask[w // 2 - 5:w // 2 + 5, h // 2 - 5:h // 2 + 5] = 1
+    # mask = cv2.normalize(gaussian_lowpass_filter(
+    #     img.shape, 40), None, 0, 1, cv2.NORM_MINMAX)
+    mask = np.ones((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+    cv2.line(mask, (428, 134), (245, 280), (0, 0, 0), 2)
+    cv2.line(mask, (509, 232), (252, 435), (0, 0, 0), 2)
+    cv2.line(mask, (493, 142), (213, 396), (0, 0, 0), 2)
+    mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    mask[0:w // 2 - 5, h // 2 - 2:h // 2 + 2] = 0
+    mask[w // 2 + 5:w, h // 2 - 2:h // 2 + 2] = 0
+
+    plt.imshow(20 * magnitude_spectrum * mask, cmap='gray')
+    plt.show()
+    masked_fourier = shifted_transformed_img * mask
+    filtered_img = idft(masked_fourier)
+    plot_before_after(img, filtered_img)
+
 
 def image5():
     img = cv2.imread("5.jpg", 0)
-    # filtered_img = np.array(255 * (img / 255)**1.5, dtype=np.uint8)
-    # filtered_img = homomorphic_filtering(img, 1, 1.5, 100)
-    filtered_img = cv2.equalizeHist(img)
-    # filtered_img = cv2.medianBlur(filtered_img, 3)
-    # filtered_img = cv2.GaussianBlur(filtered_img, (3, 3), 0)
-    # filtered_img = cv2.blur(filtered_img, (5, 5))
+    filtered_img = np.array(255 * (img / 255)**1.5, dtype=np.uint8)
+    filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0)
     plot_before_after(img, filtered_img)
 
 
 def image6():
     img = cv2.imread("6.jpg", 0)
-    # filtered_img = np.array(255 * (img / 255)**.3, dtype=np.uint8)
-    filtered_img = homomorphic_filtering(img, 0.1, 0.7, 30, 0.1)
+    filtered_img = np.array(255 * (img / 255)**0.8, dtype=np.uint8)
+    filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0)
+    # filtered_img = homomorphic_filtering(img, 0.1, 0.7, 30, 0.1)
     # filtered_img = cv2.equalizeHist(img)
     plot_before_after(img, filtered_img)
-    plot_before_after(img, filtered_img - img)
+    # plot_before_after(img, filtered_img - img)
 
 
 def image7():
     img = cv2.imread("7.jpg", 0)
+    filtered_img = np.array(255 * (img / 255)**.6, dtype=np.uint8)
+    filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0)
     # filtered_img = cv2.equalizeHist(img)
-    filtered_img = homomorphic_filtering(img, 0.8, 0.7, 20, 50)
+    # filtered_img = homomorphic_filtering(img, 0.8, 0.7, 20, 50)
     plot_before_after(img, filtered_img)
 
 
 def image8():
     img = cv2.imread("8.jpg", 0)
-    filtered_img = homomorphic_filtering(img, 0.8, 0.7, 20, 50)
+    filtered_img = np.array(255 * (img / 255)**.5, dtype=np.uint8)
+    filtered_img = cv2.medianBlur(filtered_img, 3)
     plot_before_after(img, filtered_img)
 
 
 def image9():
     img = cv2.imread("9.jpg", 0)
-    filtered_img = homomorphic_filtering(img, 0.8, 0.7, 20, 50)
+    filtered_img = np.array(255 * (img / 255)**.6, dtype=np.uint8)
+    # filtered_img = cv2.medianBlur(filtered_img, 3)
+    # filtered_img = homomorphic_filtering(img, 0.8, 0.7, 20, 50)
     plot_before_after(img, filtered_img)
 
 
 def image10():
     img = cv2.imread("10.jpg", 0)
-    filtered_img = homomorphic_filtering(img, 0.9, 0.75, 10, 100)
+    # filtered_img = np.array(255 * (img / 255)**0.8, dtype=np.uint8)
+    # filtered_img = cv2.medianBlur(filtered_img, 3)
+    filtered_img = homomorphic_filtering(img, 0.6, 0.8, 10, 100)
     plot_before_after(img, filtered_img)
 
 
@@ -232,7 +258,7 @@ def image11():
 
 def image12():
     img = cv2.imread("12.jpg", 0)
-    younger_img = make_younger(img, 32)
+    younger_img = make_younger(img, 40)
     plot_before_after(img, younger_img)
 
 
