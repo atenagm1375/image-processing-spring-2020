@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import scipy.stats as st
 import matplotlib.pyplot as plt
 
 import sys
@@ -204,49 +203,84 @@ def image4():
 def image5():
     img = cv2.imread("5.jpg", 0)
     filtered_img = np.array(255 * (img / 255)**1.5, dtype=np.uint8)
-    filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0)
+    filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0.1)
     plot_before_after(img, filtered_img)
 
 
 def image6():
     img = cv2.imread("6.jpg", 0)
-    filtered_img = np.array(255 * (img / 255)**0.8, dtype=np.uint8)
-    filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0)
-    # filtered_img = homomorphic_filtering(img, 0.1, 0.7, 30, 0.1)
+    # filtered_img = np.array(255 * (img / 255)**0.9, dtype=np.uint8)
+    # filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0)
+    # kernel = np.array([
+    #     [0, -1, 0],
+    #     [-1, 5, -1],
+    #     [0, -1, 0]
+    # ])
+    # filtered_img = cv2.filter2D(img, -1, kernel)
+    clahe = cv2.createCLAHE(clipLimit=5, tileGridSize=(3, 3))
+    filtered_img = clahe.apply(img)
+    blurred_img = cv2.GaussianBlur(filtered_img, (3, 3), 1)
+    # mask = img - blurred_img
+    # plot_before_after(img, mask)
+    # filtered_img = img + 0.1 * mask
+    filtered_img = cv2.addWeighted(filtered_img, 2, blurred_img, -1, -2)
+    kernel = np.ones((3, 3), np.uint8)
+    closing = cv2.morphologyEx(filtered_img, cv2.MORPH_CLOSE, kernel)
+    # filtered_img = homomorphic_filtering(img, 0.8, 0.6, 100, 2)
     # filtered_img = cv2.equalizeHist(img)
-    plot_before_after(img, filtered_img)
+    plot_before_after(img, np.clip(filtered_img, 0, 255))
     # plot_before_after(img, filtered_img - img)
 
 
 def image7():
     img = cv2.imread("7.jpg", 0)
-    filtered_img = np.array(255 * (img / 255)**.6, dtype=np.uint8)
-    filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0)
+    # filtered_img = np.array(255 * (img / 255)**0.5, dtype=np.uint8)
+    # # filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0)
+    # blurred_img = cv2.GaussianBlur(filtered_img, (7, 7), 5)
+    # mask = img - blurred_img
+    # plot_before_after(img, mask)
+    # filtered_img = img + 0.2 * mask
     # filtered_img = cv2.equalizeHist(img)
-    # filtered_img = homomorphic_filtering(img, 0.8, 0.7, 20, 50)
+    clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(3, 3))
+    filtered_img = clahe.apply(img)
+    # blurred_img = cv2.GaussianBlur(filtered_img, (3, 3), 0.2)
+    # mask = img - blurred_img
+    # plot_before_after(img, mask)
+    # filtered_img = img + 0.1 * mask
+    # kernel = np.ones((3, 3), np.uint8)
+    # closing = cv2.morphologyEx(filtered_img, cv2.MORPH_CLOSE, kernel)
+    filtered_img = homomorphic_filtering(filtered_img, 0.9, 0.7, 20, 2)
     plot_before_after(img, filtered_img)
 
 
 def image8():
     img = cv2.imread("8.jpg", 0)
-    filtered_img = np.array(255 * (img / 255)**.5, dtype=np.uint8)
-    filtered_img = cv2.medianBlur(filtered_img, 3)
+    filtered_img = np.array(255 * (img / 255)**0.7, dtype=np.uint8)
+    # filtered_img = cv2.medianBlur(filtered_img, 3)
+    blurred_img = cv2.GaussianBlur(filtered_img, (5, 5), 0.01)
+    mask = img - blurred_img
+    plot_before_after(img, mask)
+    filtered_img = img + 0.08 * mask
     plot_before_after(img, filtered_img)
 
 
 def image9():
     img = cv2.imread("9.jpg", 0)
-    filtered_img = np.array(255 * (img / 255)**.6, dtype=np.uint8)
-    # filtered_img = cv2.medianBlur(filtered_img, 3)
-    # filtered_img = homomorphic_filtering(img, 0.8, 0.7, 20, 50)
+    filtered_img = np.array(255 * (img / 255)**0.9, dtype=np.uint8)
+    blurred_img = cv2.GaussianBlur(filtered_img, (3, 3), 3)
+    mask = img - blurred_img
+    plot_before_after(img, mask)
+    filtered_img = img + 0.1 * mask
     plot_before_after(img, filtered_img)
 
 
 def image10():
     img = cv2.imread("10.jpg", 0)
-    # filtered_img = np.array(255 * (img / 255)**0.8, dtype=np.uint8)
-    # filtered_img = cv2.medianBlur(filtered_img, 3)
-    filtered_img = homomorphic_filtering(img, 0.6, 0.8, 10, 100)
+    filtered_img = np.array(255 * (img / 255)**0.5, dtype=np.uint8)
+    blurred_img = cv2.GaussianBlur(filtered_img, (3, 3), 1.5)
+    mask = img - blurred_img
+    plot_before_after(img, mask)
+    filtered_img = img + 0.1 * mask
     plot_before_after(img, filtered_img)
 
 
