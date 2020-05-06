@@ -63,31 +63,169 @@ def exe1():
     plt.imshow(magnitude_spectrum * mask, cmap='gray')
     plt.show()
 
-    masked_fourier = shifted_transformed_img2 * mask
-    filtered_img2 = idft(masked_fourier)
-    mean_filter = (1 / 4) * np.ones((2, 2), dtype=np.uint8)
-    filtered_img2 = cv2.filter2D(filtered_img2, -1, mean_filter)
+    masked_fourier = shifted_transformed_img * mask
+    filtered_img = idft(masked_fourier)
+    filtered_img = cv2.blur(filtered_img, (2, 2))
 
-    plot_before_after(img2, filtered_img2)
-
-
-def exe2():
-    """
-        Improve the details and visibility of images 5 to 10 with spatial and
-        frequency domain operations.
-    """
-    pass
+    plot_before_after(img, filtered_img)
 
 
-def exe3():
-    """
-        Make images 11 and 12 younger with frequency domain operators.
-    """
-    pass
+def image3():
+    img = cv2.imread("3.jpg", 0)
+    shifted_transformed_img, magnitude_spectrum = dft(img)
+    w, h = img.shape
+    mask = np.ones((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+
+    cv2.circle(mask, (96, 117), 10, (0, 0, 0), -1)
+    cv2.circle(mask, (42, 85), 10, (0, 0, 0), -1)
+    cv2.circle(mask, (204, 178), 10, (0, 0, 0), -1)
+    cv2.circle(mask, (258, 210), 10, (0, 0, 0), -1)
+
+    mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+
+    plt.imshow(magnitude_spectrum * mask, cmap='gray')
+    plt.show()
+    masked_fourier = shifted_transformed_img * mask
+    filtered_img = idft(masked_fourier)
+    plot_before_after(img, filtered_img)
+
+
+def image4():
+    img = cv2.imread("4.jpg", 0)
+    shifted_transformed_img, magnitude_spectrum = dft(img)
+    plot_before_after(img, magnitude_spectrum, True)
+
+    w, h = img.shape
+    # mask = np.ones(img.shape)
+    # # for i in range(w):
+    # #     for j in range(h):
+    # #         if 2 * magnitude_spectrum[i, j] > 25:
+    # #             mask[i, j] = 0
+    # for i in range(w):
+    #     if np.mean(magnitude_spectrum[i, :]) >= 9.:
+    #         # magnitude_spectrum[i, :] = 0
+    #         mask[i, :] = 0
+    #
+    # for j in range(h):
+    #     if np.mean(magnitude_spectrum[:, j]) >= 9.:
+    #         # magnitude_spectrum[:, j] = 0
+    #         mask[:, j] = 0
+    # mask[w // 2 - 5:w // 2 + 5, h // 2 - 5:h // 2 + 5] = 1
+    # mask = cv2.normalize(gaussian_lowpass_filter(
+    #     img.shape, 40), None, 0, 1, cv2.NORM_MINMAX)
+    mask = np.ones((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+    cv2.line(mask, (428, 134), (245, 280), (0, 0, 0), 2)
+    cv2.line(mask, (509, 232), (252, 435), (0, 0, 0), 2)
+    cv2.line(mask, (493, 142), (213, 396), (0, 0, 0), 2)
+    mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    mask[0:w // 2 - 5, h // 2 - 2:h // 2 + 2] = 0
+    mask[w // 2 + 5:w, h // 2 - 2:h // 2 + 2] = 0
+
+    plt.imshow(20 * magnitude_spectrum * mask, cmap='gray')
+    plt.show()
+    masked_fourier = shifted_transformed_img * mask
+    filtered_img = idft(masked_fourier)
+    plot_before_after(img, filtered_img)
+
+
+def image5():
+    img = cv2.imread("5.jpg", 0)
+    filtered_img = np.array(255 * (img / 255)**1.5, dtype=np.uint8)
+    filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0.1)
+    plot_before_after(img, filtered_img)
+
+
+def image6():
+    img = cv2.imread("6.jpg", 0)
+    # filtered_img = np.array(255 * (img / 255)**0.9, dtype=np.uint8)
+    # filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0)
+    # kernel = np.array([
+    #     [0, -1, 0],
+    #     [-1, 5, -1],
+    #     [0, -1, 0]
+    # ])
+    # filtered_img = cv2.filter2D(img, -1, kernel)
+    clahe = cv2.createCLAHE(clipLimit=5, tileGridSize=(3, 3))
+    filtered_img = clahe.apply(img)
+    blurred_img = cv2.GaussianBlur(filtered_img, (3, 3), 1)
+    # mask = img - blurred_img
+    # plot_before_after(img, mask)
+    # filtered_img = img + 0.1 * mask
+    filtered_img = cv2.addWeighted(filtered_img, 2, blurred_img, -1, -2)
+    kernel = np.ones((3, 3), np.uint8)
+    closing = cv2.morphologyEx(filtered_img, cv2.MORPH_CLOSE, kernel)
+    # filtered_img = homomorphic_filtering(img, 0.8, 0.6, 100, 2)
+    # filtered_img = cv2.equalizeHist(img)
+    plot_before_after(img, np.clip(filtered_img, 0, 255))
+    # plot_before_after(img, filtered_img - img)
+
+
+def image7():
+    img = cv2.imread("7.jpg", 0)
+    # filtered_img = np.array(255 * (img / 255)**0.5, dtype=np.uint8)
+    # # filtered_img = cv2.GaussianBlur(filtered_img, (5, 5), 0)
+    # blurred_img = cv2.GaussianBlur(filtered_img, (7, 7), 5)
+    # mask = img - blurred_img
+    # plot_before_after(img, mask)
+    # filtered_img = img + 0.2 * mask
+    # filtered_img = cv2.equalizeHist(img)
+    clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(3, 3))
+    filtered_img = clahe.apply(img)
+    # blurred_img = cv2.GaussianBlur(filtered_img, (3, 3), 0.2)
+    # mask = img - blurred_img
+    # plot_before_after(img, mask)
+    # filtered_img = img + 0.1 * mask
+    # kernel = np.ones((3, 3), np.uint8)
+    # closing = cv2.morphologyEx(filtered_img, cv2.MORPH_CLOSE, kernel)
+    filtered_img = homomorphic_filtering(filtered_img, 0.9, 0.7, 20, 2)
+    plot_before_after(img, filtered_img)
+
+
+def image8():
+    img = cv2.imread("8.jpg", 0)
+    filtered_img = np.array(255 * (img / 255)**0.7, dtype=np.uint8)
+    # filtered_img = cv2.medianBlur(filtered_img, 3)
+    blurred_img = cv2.GaussianBlur(filtered_img, (5, 5), 0.01)
+    mask = img - blurred_img
+    plot_before_after(img, mask)
+    filtered_img = img + 0.08 * mask
+    plot_before_after(img, filtered_img)
+
+
+def image9():
+    img = cv2.imread("9.jpg", 0)
+    filtered_img = np.array(255 * (img / 255)**0.9, dtype=np.uint8)
+    blurred_img = cv2.GaussianBlur(filtered_img, (3, 3), 3)
+    mask = img - blurred_img
+    plot_before_after(img, mask)
+    filtered_img = img + 0.1 * mask
+    plot_before_after(img, filtered_img)
+
+
+def image10():
+    img = cv2.imread("10.jpg", 0)
+    filtered_img = np.array(255 * (img / 255)**0.5, dtype=np.uint8)
+    blurred_img = cv2.GaussianBlur(filtered_img, (3, 3), 1.5)
+    mask = img - blurred_img
+    plot_before_after(img, mask)
+    filtered_img = img + 0.1 * mask
+    plot_before_after(img, filtered_img)
+
+
+def image11():
+    img = cv2.imread("11.jpg", 0)
+    younger_img = make_younger(img, 40)
+    plot_before_after(img, younger_img)
+
+
+def image12():
+    img = cv2.imread("12.jpg", 0)
+    younger_img = make_younger(img, 40)
+    plot_before_after(img, younger_img)
 
 
 def __main__(num):
-    name = "exe{}".format(num)
+    name = "image{}".format(num)
     globals()[name]()
 
 
