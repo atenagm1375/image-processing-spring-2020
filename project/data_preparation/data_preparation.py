@@ -31,14 +31,14 @@ def split_data(metadata_file_path, n_parts=3):
     None.
 
     """
-    df = pd.load_csv(metadata_file_path, index_col=0)
+    df = pd.read_csv(metadata_file_path, index_col=0)
     inds = list(df.index)
     np.random.shuffle(inds)
 
     size, leftovers = divmod(len(inds), n_parts)
     chunks = []
     for i in range(n_parts):
-        chunks.append(df.iloc[inds[size * i: size * (i + 1)]])
+        chunks.append(df.loc[inds[size * i: size * (i + 1)]])
 
     for i in range(leftovers):
         chunks[i % n_parts].append(df.iloc[size * n_parts + i])
@@ -70,15 +70,21 @@ def split_image_folders(metadata_files_paths, images_folder_path):
 
     """
     new_folder = "../DATA/"
-    os.mkdir(new_folder)
+    if not os.path.isdir(new_folder):
+        os.mkdir(new_folder)
     for i in range(len(metadata_files_paths)):
         df = pd.read_csv(metadata_files_paths[i], index_col=0)
         move(metadata_files_paths[i], new_folder)
         part_folder = new_folder + "part_{}/".format(i + 1)
         os.mkdir(part_folder)
         for file_name in df.index:
-            os.move(images_folder_path + file_name + ".jpg",
-                    new_folder + file_name + ".jpg")
+            try:
+                move(images_folder_path + file_name + ".jpg",
+                     new_folder + part_folder + file_name + ".jpg")
+            except FileNotFoundError:
+                print(f"part{i}, image: {file_name}")
+                df.drop(file_name, axis=0, inplace=True)
+        df.to_csv(metadata_files_paths[i])
         del df
         del part_folder
         gc.collect()
