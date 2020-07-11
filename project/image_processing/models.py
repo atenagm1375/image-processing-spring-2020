@@ -7,7 +7,7 @@ IMAGE PROCESSING PROJECT CODE.
 
 """
 
-import numpy as np
+from keras import backend
 
 from keras.layers import Input, Conv2D, MaxPooling2D, Dropout, Flatten, Dense
 from keras.models import Model
@@ -41,10 +41,10 @@ class SDRegularizer(Regularizer):
             The regularization amount.
 
         """
-        sigma = np.sqrt((1 / self.n) *
-                        ((np.sum(x ** 2, axis=0) -
-                          (1 / self.n) * (np.sum(x, axis=0) ** 2))))
-        return self.Lambda * np.sum(sigma)
+        sigma = backend.sqrt((1 / self.n) *
+                             ((backend.sum(x ** 2, axis=0) -
+                               (1 / self.n) * (backend.sum(x, axis=0) ** 2))))
+        return self.Lambda * backend.sum(sigma)
 
 
 def albahar_model(Lambda, input_shape=(300, 300, 3), dropout_rate=0.1):
@@ -104,7 +104,7 @@ def train(model, x_train, x_val, y_train, y_val, epochs=100,
         Number of training epochs. The default is 100.
     optimizer : keras.optimizer, optional
         The optimizer to use for model compilation. The default is None.
-    callbacks : keras.callbacks, optional
+    callbacks : list of keras.callbacks, optional
         Callbacks used when fitting model to data. The default is None.
 
     Returns
@@ -114,7 +114,7 @@ def train(model, x_train, x_val, y_train, y_val, epochs=100,
 
     """
     model.compile(loss=binary_crossentropy, optimizer=optimizer,
-                  metrics=["auc", "accuracy"])
+                  metrics=["accuracy"])
     history = model.fit(x_train, y_train, epochs=epochs, callbacks=callbacks,
                         validation_data=(x_val, y_val))
     return history.history

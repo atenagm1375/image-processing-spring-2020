@@ -9,10 +9,11 @@ IMAGE PROCESSING PROJECT CODE.
 
 import os
 import gc
+from copy import copy
 
 import pandas as pd
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFile
 
 
 class Data:
@@ -44,11 +45,18 @@ class Data:
         None.
 
         """
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
+
         for file_name in os.listdir(folder_path):
-            self.images.append(Image.open(folder_path + file_name).resize(
-                image_size))
+            im = Image.open(folder_path + file_name).resize(image_size)
+            # if np.asarray(im).shape != (300, 300, 3):
+            #     print(file_name, np.asarray(im).shape)
+            self.images.append(im)
             self.names.append(file_name[:-4])
-        self.x = np.array(self.images)
+            self.x.append(np.asarray(im))
+        # print(self.x)
+        # print(type(self.x))
+        # self.x = np.array(self.x)
         gc.collect()
 
     def set_y(self, metadata_path):
@@ -65,14 +73,22 @@ class Data:
         None.
 
         """
-        df = pd.load_csv(metadata_path, index_col=0)
-        for name in self.names:
-            self.y.append(df[name])
+        df = pd.read_csv(metadata_path, index_col=0)
+        names = copy(self.names)
+        for name in names:
+            if name in df.index:
+                self.y.append(df.loc[name])
+            else:
+                ind = self.names.index(name)
+                self.x.pop(ind)
+                self.names.pop(ind)
         self.y = np.array(self.y)
+        self.x = np.array(self.x)
         del df
+        del names
         gc.collect()
 
-    def powerlaw_transformation(self, gamma, c):
+    def powerlaw_transform(self, gamma, c):
         """
         Perform Powerlaw transformation(gamma correction) on x.
 
