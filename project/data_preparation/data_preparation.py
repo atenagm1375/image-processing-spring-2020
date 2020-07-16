@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 
 
-def split_data(metadata_file_path, n_parts=3):
+def split_data(metadata_file_path, n_parts=3, save_to=None):
     """
     Split data into (almost) equal parts.
 
@@ -25,6 +25,8 @@ def split_data(metadata_file_path, n_parts=3):
         Path to metadata file.
     n_parts : int, optional
         Number of parts. The default is 3.
+    save_to : str
+        Path to folder where files are saved.
 
     Returns
     -------
@@ -44,13 +46,18 @@ def split_data(metadata_file_path, n_parts=3):
         chunks[i % n_parts].append(df.iloc[size * n_parts + i])
 
     for i in range(n_parts):
-        chunks[i].to_csv(metadata_file_path[:-4] + "_{}.csv".format(i + 1))
+        if save_to is None:
+            chunks[i].to_csv(metadata_file_path[:-4] + "_{}.csv".format(i + 1))
+        else:
+            if not os.path.isdir(save_to):
+                os.mkdir(save_to)
+            chunks[i].to_csv(save_to + "metadata_{}.csv".format(i + 1))
 
     del chunks
     gc.collect()
 
 
-def split_image_folders(metadata_files_paths, images_folder_path):
+def split_image_folders(metadata_files_paths, images_folder_path, folder):
     """
     Split images into separate folders.
 
@@ -62,25 +69,25 @@ def split_image_folders(metadata_files_paths, images_folder_path):
     metadata_files_paths : list of str
         List of paths to metadata files related to each data section.
     images_folder_path : str
-        Path to save the folders in.
+        Path to where the images reside.
+    folder : str
+        Folder to save images to.
 
     Returns
     -------
     None.
 
     """
-    new_folder = "../DATA/"
-    if not os.path.isdir(new_folder):
-        os.mkdir(new_folder)
+    if not os.path.isdir(folder):
+        os.mkdir(folder)
     for i in range(len(metadata_files_paths)):
         df = pd.read_csv(metadata_files_paths[i], index_col=0)
-        move(metadata_files_paths[i], new_folder)
-        part_folder = new_folder + "part_{}/".format(i + 1)
+        part_folder = folder + "part_{}/".format(i + 1)
         os.mkdir(part_folder)
         for file_name in df.index:
             try:
                 move(images_folder_path + file_name + ".jpg",
-                     new_folder + part_folder + file_name + ".jpg")
+                     folder + part_folder + file_name + ".jpg")
             except FileNotFoundError:
                 print(f"part{i}, image: {file_name}")
                 df.drop(file_name, axis=0, inplace=True)

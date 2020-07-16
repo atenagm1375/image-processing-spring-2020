@@ -83,7 +83,7 @@ def albahar_model(Lambda, input_shape=(300, 300, 3), dropout_rate=0.1):
     return model
 
 
-def train(model, x_train, x_val, y_train, y_val, epochs=100,
+def train(model, x_train, y_train, x_val=None, y_val=None, epochs=100,
           optimizer=None, callbacks=None):
     """
     Compile and fit the model to data.
@@ -115,6 +115,11 @@ def train(model, x_train, x_val, y_train, y_val, epochs=100,
     """
     model.compile(loss=binary_crossentropy, optimizer=optimizer,
                   metrics=["accuracy"])
-    history = model.fit(x_train, y_train, epochs=epochs, callbacks=callbacks,
-                        validation_data=(x_val, y_val))
+    if x_val is None or y_val is None:
+        history = model.fit(x_train, y_train, epochs=epochs,
+                            callbacks=callbacks)
+    else:
+        history = model.fit(x_train, y_train, epochs=epochs,
+                            callbacks=callbacks,
+                            validation_data=(x_val, y_val))
     return history.history

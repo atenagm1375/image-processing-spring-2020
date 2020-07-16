@@ -46,11 +46,13 @@ class Data:
 
         """
         ImageFile.LOAD_TRUNCATED_IMAGES = True
+        print(folder_path)
 
         for file_name in os.listdir(folder_path):
             im = Image.open(folder_path + file_name).resize(image_size)
-            # if np.asarray(im).shape != (300, 300, 3):
-            #     print(file_name, np.asarray(im).shape)
+            if np.asarray(im).shape != (300, 300, 3):
+                im = im.convert("RGB")
+                print(file_name, np.asarray(im).shape)
             self.images.append(im)
             self.names.append(file_name[:-4])
             self.x.append(np.asarray(im))
