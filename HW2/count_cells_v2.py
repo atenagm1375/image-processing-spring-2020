@@ -63,6 +63,15 @@ gc.collect()
 # %% FUNCTIONS TO FIND THE CELLS
 
 
+# def contrast_stretching(pixel, r1, s1, r2, s2):
+#     if 0 <= pixel <= r1:
+#         return pixel * (s1 / r1)
+#     elif r1 < pixel <= r2:
+#         return pixel * ((s2 - s1) / (r2 - r1)) + s1
+#     else:
+#         return pixel * ((255 - s2) / (255 - r2)) + s2
+
+
 def distinguish_cells(im):
     """
     Distinguish red and white cells by applying dual otsu thresholding.
@@ -80,7 +89,11 @@ def distinguish_cells(im):
         Thresholded image containing only white cells.
 
     """
-    thresh_vals = threshold_multiotsu(im)
+    blurred = cv2.GaussianBlur(im, (9, 9), 0.5)
+    # gamma_corrected = cv2.equalizeHist(blurred)
+    # gamma_corrected = cv2.createCLAHE(clipLimit=40).apply(gamma_corrected)
+    # gamma_corrected = np.array(255 * (blurred / 255) ** 0.95, dtype=np.uint8)
+    thresh_vals = threshold_multiotsu(blurred)
     regions = np.digitize(im, bins=thresh_vals)
 
     red_mask = np.zeros(regions.shape, np.uint8)
@@ -90,19 +103,17 @@ def distinguish_cells(im):
     white_mask[regions == 0] = 255
 
     fig = plt.figure(figsize=(30, 30))
-    fig.add_subplot(1, 4, 1)
+    fig.add_subplot(1, 3, 1)
     plt.imshow(im, 'gray')
-    fig.add_subplot(1, 4, 2)
+    fig.add_subplot(1, 3, 2)
+    plt.imshow(blurred, 'gray')
+    fig.add_subplot(1, 3, 3)
     plt.imshow(regions, 'gray')
-    fig.add_subplot(1, 4, 3)
-    plt.imshow(red_mask, 'gray')
-    fig.add_subplot(1, 4, 4)
-    plt.imshow(white_mask, 'gray')
 
     return red_mask, white_mask
 
 
-def process_image(im):
+def process_image(im, name=None):
     """
     Process the thresholded image.
 
@@ -119,14 +130,15 @@ def process_image(im):
     """
     plt.imshow(im, 'gray')
     se_circle_15 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
-    se_square_5 = np.ones((5, 5), np.uint8)
+    se_cirlce_5 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 
-    close = cv2.morphologyEx(im, cv2.MORPH_CLOSE, se_circle_15, iterations=2)
-    erode = cv2.erode(close, se_square_5, iterations=3)
+    opn = cv2.morphologyEx(im, cv2.MORPH_OPEN, se_cirlce_5, iterations=2)
+    close = cv2.morphologyEx(opn, cv2.MORPH_CLOSE, se_circle_15, iterations=1)
+    erode = cv2.erode(close, se_cirlce_5, iterations=1)
     gradient = cv2.morphologyEx(erode, cv2.MORPH_GRADIENT, se_circle_15)
 
-    cells = cv2.HoughCircles(gradient, cv2.HOUGH_GRADIENT, 1, 75,
-                             param1=10, param2=18,
+    cells = cv2.HoughCircles(gradient, cv2.HOUGH_GRADIENT, 1, 50,
+                             param1=50, param2=20,
                              minRadius=15, maxRadius=120)
 
     hough = deepcopy(cv2.cvtColor(im, cv2.COLOR_GRAY2RGB))
@@ -135,37 +147,52 @@ def process_image(im):
         cells = np.uint16(np.around(cells))
         # print(len(cells[0, :]))
         for i in cells[0, :]:
-            cv2.circle(hough, (i[0], i[1]), i[2], (0, 255, 0), 8)
+            cv2.circle(hough, (i[0], i[1]), i[2], (255, 0, 0), 8)
+    count = 0 if cells is None else len(cells[0, :])
 
-    fig = plt.figure(figsize=(30, 30))
-    fig.add_subplot(1, 5, 1)
-    plt.imshow(im, "gray", label="Thresholded image")
-    fig.add_subplot(1, 5, 2)
-    plt.imshow(close, "gray", label="Image after close operator")
-    fig.add_subplot(1, 5, 3)
-    plt.imshow(erode, "gray", label="Image after close and erode operators")
-    fig.add_subplot(1, 5, 4)
-    plt.imshow(gradient, "gray", label="Image gradients")
-    fig.add_subplot(1, 5, 5)
-    plt.imshow(hough, "gray", label="The cells")
+    fig, axes = plt.subplots(1, 5)
+    axes[0].imshow(im, "gray")
+    # axes[0].set_title("Thresholded image")
+    axes[1].imshow(close, "gray")
+    # axes[1].set_title("Image after close operator")
+    axes[2].imshow(erode, "gray")
+    # axes[2].set_title("Image after close and erode operators")
+    axes[3].imshow(gradient, "gray")
+    # axes[3].set_title("Image gradients")
+    axes[4].imshow(hough, "gray")
+    axes[4].set_title(f"{count} cells")
     # fig.savefig("WHITE_{}.png".format(name))
+    # plt.legend()
+    plt.axis("off")
     plt.show()
     plt.close()
+
+    if name is not None:
+        fig = plt.figure(figsize=(10, 10))
+        plt.imshow(hough, "gray")
+        fig.savefig(name + ".png")
+        plt.close()
 
     return cells
 
 # %% COUNT THE CELLS
 
 
-for ind, row in idb1_dataframe.iterrows():
-    print("-*" * 50)
-    print(f"Image {ind}:")
-    red, white = distinguish_cells(row.image)
-    print("Processing red...")
-    red_cells = process_image(red)
-    print("processing white...")
-    white_cells = process_image(white)
-    print(f"RED={len(red_cells[0, :])}, WHITE={len(white_cells[0, :])}")
+with open("log.txt", 'w') as file:
+    for ind, row in idb1_dataframe.iterrows():
+        file.write("-*" * 50 + "\n")
+        file.write(f"Image {ind}:\n")
+        print("-*" * 50)
+        print(f"Image {ind}:")
+        red, white = distinguish_cells(row.image)
+        print("Processing red...")
+        red_cells = process_image(red, f"{ind}_red")
+        red_count = len(red_cells[0, :]) if red_cells is not None else 0
+        print("processing white...")
+        white_cells = process_image(white, f"{ind}_white")
+        white_count = len(white_cells[0, :]) if white_cells is not None else 0
+        file.write(f"RED={red_count}, WHITE={white_count}\n")
+        print(f"RED={red_count}, WHITE={white_count}")
 
 # %% COUNT WHITE CELLS
 
