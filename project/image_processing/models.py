@@ -10,7 +10,8 @@ IMAGE PROCESSING PROJECT CODE.
 from keras import backend
 
 from keras.layers import Input, Conv2D, MaxPooling2D, Dropout, Flatten, Dense
-from keras.models import Model
+from keras.models import Model, Sequential
+from keras.applications.vgg16 import VGG16
 from keras.regularizers import Regularizer
 from keras.losses import binary_crossentropy
 
@@ -78,6 +79,49 @@ def albahar_model(Lambda, input_shape=(300, 300, 3), dropout_rate=0.1):
     out = Dense(2, activation="softmax")(dense)
 
     model = Model(inputs=inp, outputs=out)
+    print(model.summary())
+
+    return model
+
+
+def pretrained_VGG16_model(n_classes=2, input_shape=(300, 300, 3),
+                           weights='imagenet', trainable_layers=[]):
+    """
+    Model using VGG16 pretrained model.
+
+    Parameters
+    ----------
+    n_classes : int, optional
+        Number of output classes. The default is 2.
+    input_shape : tuple, optional
+        Shape of input images. The default is (300, 300, 3).
+    weights : str, optional
+        One of None (random initialization),
+        'imagenet' (pre-training on ImageNet), or
+        the path to the weights file to be loaded.. The default is 'imagenet'.
+    vgg_trainable_layers : list, optional
+        List of layer indices to be trainable. The default is [].
+
+    Returns
+    -------
+    model : keras.models.Sequential
+        The model to be compiled and trained.
+
+    """
+    vgg = VGG16(weights=weights, include_top=False,
+                input_shape=input_shape, classes=n_classes)
+
+    model = Sequential(vgg.layers[:])
+    model.add(Flatten())
+    model.add(Dense(4096, activation='relu'))
+    model.add(Dense(4096, activation='relu'))
+    model.add(Dense(1000, activation='relu'))
+    model.add(Dense(n_classes, activation='softmax'))
+
+    for ind, layer in enumerate(model.layers[:-3]):
+        if ind not in trainable_layers:
+            layer.trainable = False
+
     print(model.summary())
 
     return model

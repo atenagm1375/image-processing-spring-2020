@@ -10,16 +10,13 @@ IMAGE PROCESSING PROJECT CODE.
 # %% IMPORT MODULES
 
 import gc
-import os
-from pathlib import Path
 
 from data_preparation.csv_converter import benign_malignant_dataframe
 from data_preparation.data_preparation import split_data, split_image_folders
 from image_processing.image_processing import Data
-from image_processing.models import albahar_model, train
+from image_processing.models import *
 from sklearn.model_selection import train_test_split
 from keras.optimizers import Adam
-from keras.models import load_model
 
 import numpy as np
 
@@ -28,12 +25,10 @@ import numpy as np
 ISIC_PATH = "../../paper/data/ISICArchive/"
 ORIGINAL_METADATA_PATH = "../../paper/data/metadata.csv"
 DATA_PATH = "../DATA/"
-MODEL_PATH = "../MODEL/"
 SUB_METADATA = "metadata_"
 SUB_BM = "bm_"
 PART = "part_"
 n_parts = 3
-chunk_size = 128
 
 # %% SPLIT DATA
 
@@ -65,64 +60,53 @@ for i in range(1, n_parts + 1):
     del data.x, data.y, data.names, data
     gc.collect()
 
-    n_chunks = int(np.ceil(x_train.shape[0] / chunk_size))
-    val_chunk_size = int(np.ceil(x_test.shape[0] // n_chunks))
+    np.save(DATA_PATH + PART + str(i) + f"/x_train.data", x_train)
+    np.save(DATA_PATH + PART + str(i) + f"/y_train.data", y_train)
+    np.save(DATA_PATH + PART + str(i) + f"/x_test.data", x_test)
+    np.save(DATA_PATH + PART + str(i) + f"/y_test.data", y_test)
 
-    os.mkdir(DATA_PATH + PART + str(i) + "/x_train/")
-    os.mkdir(DATA_PATH + PART + str(i) + "/y_train/")
-    os.mkdir(DATA_PATH + PART + str(i) + "/x_test/")
-    os.mkdir(DATA_PATH + PART + str(i) + "/y_test/")
-
-    for j in range(n_chunks):
-        np.save(DATA_PATH + PART + str(i) + f"/x_train/{j}.data",
-                x_train[j * chunk_size:(j + 1) * chunk_size])
-        np.save(DATA_PATH + PART + str(i) + f"/y_train/{j}.data",
-                y_train[j * chunk_size:(j + 1) * chunk_size])
-        np.save(DATA_PATH + PART + str(i) + f"/x_test/{j}.data",
-                x_test[j * val_chunk_size:(j + 1) * val_chunk_size])
-        np.save(DATA_PATH + PART + str(i) + f"/y_test/{j}.data",
-                y_test[j * val_chunk_size:(j + 1) * val_chunk_size])
-
-    del x_train, x_test, y_train, y_test, n_chunks, val_chunk_size
+    del x_train, x_test, y_train, y_test
     gc.collect()
 
 # %% PAPER CODE SCRIPT
 
 print("=" * 100)
-
-print("INITIALIZING MODEL...")
-model = albahar_model(0.02)
-
-print("SAVING MODEL...")
-model_name = "albahar_1.h5"
-if not os.path.isdir(MODEL_PATH):
-    os.mkdir(MODEL_PATH)
-model.save(MODEL_PATH + model_name)
-
-del model
-gc.collect()
-
 print("START TRAIN PROCESS...")
+
 for i in range(1, n_parts + 1):
     print("-*" * 40)
-    x_path_list = Path(DATA_PATH + PART + str(i) + "/x_train/").rglob("*.npy")
-    y_path_list = Path(DATA_PATH + PART + str(i) + "/y_train/").rglob("*.npy")
-    j = 1
-    for x, y in zip(x_path_list, y_path_list):
-        x_train = np.load(DATA_PATH + PART + str(i) + "/x_train.data.npy")
-        y_train = np.load(DATA_PATH + PART + str(i) + "/y_train.data.npy")
+    x_train = np.load(DATA_PATH + PART + str(i) + "/x_train.data.npy")
+    y_train = np.load(DATA_PATH + PART + str(i) + "/y_train.data.npy")
 
-        model = load_model(MODEL_PATH + model_name)
+    model = albahar_model(0.02)
 
-        history = train(model, x_train, y_train, optimizer=Adam(0.002))
+    history = train(model, x_train, y_train, optimizer=Adam(0.002))
 
-        model.save(MODEL_PATH + model_name)
+    print(history)
 
-        np.save(f"history_{j}", history)
-        j += 1
-        print(history)
+    del model, history
+    gc.collect()
 
-        del model, history
-        gc.collect()
+# %% USE PRETRAINED VGG
+
+print("=" * 100)
+print("START TRAIN PROCESS...")
+
+for i in range(1, n_parts + 1):
+    print("-*" * 40)
+    x_train = np.load(DATA_PATH + PART + str(i) + "/x_train.data.npy")
+    y_train = np.load(DATA_PATH + PART + str(i) + "/y_train.data.npy")
+    x_test = np.load(DATA_PATH + PART + str(i) + "/x_test.data.npy")
+    y_test = np.load(DATA_PATH + PART + str(i) + "/y_test.data.npy")
+
+    model = pretrained_VGG16_model()
+
+    history = train(model, x_train, y_train, x_test, y_test,
+                    optimizer=Adam(0.0005), epochs=8)
+
+    print(history)
+
+    del model, history
+    gc.collect()
 
 # %%
