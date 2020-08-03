@@ -13,7 +13,8 @@ from keras.layers import Input, Conv2D, MaxPooling2D, Dropout, Flatten, Dense
 from keras.models import Model, Sequential
 from keras.applications.vgg16 import VGG16
 from keras.regularizers import Regularizer
-from keras.losses import binary_crossentropy
+from keras.losses import categorical_crossentropy
+from keras.metrics import AUC
 
 
 class SDRegularizer(Regularizer):
@@ -68,9 +69,9 @@ def albahar_model(Lambda, input_shape=(300, 300, 3), dropout_rate=0.1):
 
     """
     inp = Input(input_shape)
-    conv1 = Conv2D(32, 3, activation="relu",
+    conv1 = Conv2D(32, 3, strides=(3, 3), activation="relu",
                    kernel_regularizer=SDRegularizer(Lambda, 9))(inp)
-    conv2 = Conv2D(64, 3, activation="relu",
+    conv2 = Conv2D(64, 3, activation="relu", padding='same',
                    kernel_regularizer=SDRegularizer(Lambda, 9))(conv1)
     pool = MaxPooling2D(pool_size=(2, 2))(conv2)
     dropout = Dropout(dropout_rate)(pool)
@@ -157,8 +158,8 @@ def train(model, x_train, y_train, x_val=None, y_val=None, epochs=100,
         The history of loss and metrics in each epoch.
 
     """
-    model.compile(loss=binary_crossentropy, optimizer=optimizer,
-                  metrics=["accuracy"])
+    model.compile(loss=categorical_crossentropy, optimizer=optimizer,
+                  metrics=["accuracy", "categorical_accuracy", AUC()])
     if x_val is None or y_val is None:
         history = model.fit(x_train, y_train, epochs=epochs,
                             callbacks=callbacks)

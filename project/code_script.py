@@ -14,9 +14,12 @@ import gc
 from data_preparation.csv_converter import benign_malignant_dataframe
 from data_preparation.data_preparation import split_data, split_image_folders
 from image_processing.image_processing import Data
-from image_processing.models import *
+from image_processing.models import albahar_model, pretrained_VGG16_model
+from image_processing.models import train
 from sklearn.model_selection import train_test_split
 from keras.optimizers import Adam
+from keras.callbacks import ReduceLROnPlateau, EarlyStopping
+from sklearn.metrics import confusion_matrix
 
 import numpy as np
 
@@ -73,19 +76,32 @@ for i in range(1, n_parts + 1):
 print("=" * 100)
 print("START TRAIN PROCESS...")
 
-for i in range(1, n_parts + 1):
-    print("-*" * 40)
-    x_train = np.load(DATA_PATH + PART + str(i) + "/x_train.data.npy")
-    y_train = np.load(DATA_PATH + PART + str(i) + "/y_train.data.npy")
+# for i in range(1, n_parts + 1):
+i = 1
+print("-*" * 40)
+x_train = np.load(DATA_PATH + PART + str(i) + "/x_train.data.npy")
+y_train = np.load(DATA_PATH + PART + str(i) + "/y_train.data.npy")
+x_test = np.load(DATA_PATH + PART + str(i) + "/x_test.data.npy")
+y_test = np.load(DATA_PATH + PART + str(i) + "/y_test.data.npy")
 
-    model = albahar_model(0.02)
+model = albahar_model(0.02, dropout_rate=0.65)
 
-    history = train(model, x_train, y_train, optimizer=Adam(0.002))
+history = train(model, x_train, y_train, x_test, y_test,
+                optimizer=Adam(0.0001),
+                callbacks=[ReduceLROnPlateau(patience=5, min_lr=1e-7),
+                           EarlyStopping(patience=10)])
 
-    print(history)
+# print(history)
 
-    del model, history
-    gc.collect()
+pred_train = model.predict(x_train)
+pred_test = model.predict(x_test)
+print(confusion_matrix(np.argmax(y_train, axis=1),
+                       np.argmax(pred_train, axis=1)))
+print(confusion_matrix(np.argmax(y_test, axis=1),
+                       np.argmax(pred_test, axis=1)))
+
+# del model, history
+# gc.collect()
 
 # %% USE PRETRAINED VGG
 
