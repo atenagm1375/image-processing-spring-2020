@@ -17,15 +17,14 @@ from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
 import pandas as pd
 import PIL as pil
-# from PIL import ImageOps
-# import scipy.ndimage as sim
-# from skimage import filters
+
 import keras
-# import seaborn as sns
+
 import matplotlib.pyplot as plt
 
 from sklearn.svm import SVC
 import xgboost as xgb
+from sklearn.neighbors import KNeighborsClassifier
 
 # %% CONSTANTS
 
@@ -140,7 +139,7 @@ def use_vgg16(x, y, input_shape, plot_loss=True):
                                          input_shape=input_shape)
     model = keras.models.Sequential(vgg.layers[:8])
     model.add(keras.layers.Flatten())
-    model.add(keras.layers.Dropout(0.2))
+    model.add(keras.layers.Dropout(0.6))
     model.add(keras.layers.Dense(128, activation='relu'))
     model.add(keras.layers.Dense(1, activation='sigmoid'))
     print(model.summary())
@@ -155,7 +154,7 @@ def use_vgg16(x, y, input_shape, plot_loss=True):
     history = model.fit(x_train, y_train, epochs=8,
                         callbacks=[
                             keras.callbacks.ReduceLROnPlateau(patience=5)],
-                        validation_data=(x_val, y_val))
+                        validation_data=(x_val, y_val), workers=4)
 
     if plot_loss:
         plot_loss_history(history.history)
@@ -182,13 +181,13 @@ def _vgg16_classifier_model(x_train, x_val, y_train, y_val,
         print(model.summary())
 
         model.compile(loss=keras.losses.binary_crossentropy,
-                      optimizer=keras.optimizers.RMSprop(learning_rate=0.01),
+                      optimizer=keras.optimizers.RMSprop(learning_rate=0.005),
                       metrics=['accuracy'])
 
         history = model.fit(x_train, y_train, epochs=10,
                             callbacks=[
                                 keras.callbacks.EarlyStopping(patience=1)],
-                            validation_data=(x_val, y_val))
+                            validation_data=(x_val, y_val), workers=4)
 
         plot_loss_history(history.history)
 
@@ -254,14 +253,49 @@ def use_vgg16_with_classifier(x, y, input_shape, classifier,
                                          trainable=trainable)
         return get_scores(y_val, y_pred)
 
+
+def augmented_vgg_classifier(df, input_shape, classifier):
+    n = len(df)
+    inds = list(range(n))
+    np.random.shuffle(inds)
+
+    scores = []
+    for i in range(5):
+        tst_idx = inds[i * (n // 5):(i + 1) * (n // 5)]
+        trn_idx = [ind for ind in inds if ind not in tst_idx]
+        trn_df = df.iloc[trn_idx]
+        aug_df = _gamma_augment(trn_df, [0.5, 1.5])
+        new = pd.concat([trn_df, aug_df], axis=0)
+        new = new.sample(frac=1)
+        x_train = np.stack(new["x"].values)
+        y_train = new["y"].values.astype(int)
+        x_val = np.stack(df["x"].iloc[tst_idx].values)
+        y_val = df["y"].iloc[tst_idx].values.astype(int)
+        y_pred = _vgg16_classifier_model(x_train, x_val,
+                                         y_train, y_val,
+                                         input_shape, classifier,
+                                         trainable=True)
+        scores.append(get_scores(y_val, y_pred))
+    return np.mean(scores, axis=0)
+
+
+def _gamma_augment(df, gammas):
+    new_df = pd.DataFrame(columns=["image", "x", "y"])
+    for gamma in gammas:
+        x = df["x"].apply(lambda im: (((im / 255.0) ** gamma) * 255).astype(
+            np.uint8))
+        im = x.apply(lambda im: pil.Image.fromarray(im))
+        new = pd.concat({"image": im, "x": x, "y": df["y"]}, axis=1)
+        new_df = pd.concat([new_df, new], axis=0)
+    return new_df.reset_index()
+
 # %% RUN MODEL INCLUDING VGG16 WITH SIMPLE HOLDOUT METHOD
 
 
 df["x"] = df["image"].apply(lambda img: np.array(
     img.resize((200, 200), pil.Image.ANTIALIAS)))
 image_shape = df["x"].iloc[0].shape
-print("USING FIRST 8 LAYERS OF VGG16 AND ADDING DROPOUT(0.2) AND DNESE(128)"
-      " FOLLOWING A SIGMOID UNIT:")
+
 conf_mat = use_vgg16(df["x"].values, df["y"].values, image_shape)
 
 print(conf_mat)
@@ -269,7 +303,7 @@ print("ACCURACY:", (conf_mat[0][0] + conf_mat[1][1])/np.sum(conf_mat))
 """
 
 OUTPUT:
-ACCURACY: 0.8653846153846154
+ACCURACY: 0.8846153846153846
 
 """
 
@@ -278,7 +312,7 @@ ACCURACY: 0.8653846153846154
 df["x"] = df["image"].apply(lambda img: np.array(
     img.resize((200, 200), pil.Image.ANTIALIAS)))
 image_shape = df["x"].iloc[0].shape
-print("USING VGG16 FEATURE EXTRACTION:")
+
 conf_mat = use_vgg16_with_classifier(df["x"].values, df["y"].values,
                                      image_shape, classifier=SVC(kernel='rbf',
                                                                  C=5))
@@ -296,7 +330,7 @@ MEAN ACCURACY: 0.9038461538461539
 df["x"] = df["image"].apply(lambda img: np.array(
     img.resize((200, 200), pil.Image.ANTIALIAS)))
 image_shape = df["x"].iloc[0].shape
-print("USING VGG16 FEATURE EXTRACTION:")
+
 conf_mat = use_vgg16_with_classifier(df["x"].values, df["y"].values,
                                      image_shape, classifier=SVC(kernel='rbf',
                                                                  C=1),
@@ -307,6 +341,23 @@ print("MEAN ACCURACY:", (conf_mat[0][0] + conf_mat[1][1])/np.sum(conf_mat))
 
 OUTPUT:
 MEAN ACCURACY: 0.9230769230769231
+
+"""
+
+# %% RUN MODEL WITH TRAINABLE VGG16 AND SVM(RBF KERNEL) WITH CV=5
+
+df["x"] = df["image"].apply(lambda img: np.array(
+    img.resize((200, 200), pil.Image.ANTIALIAS)))
+image_shape = df["x"].iloc[0].shape
+
+conf_mat = augmented_vgg_classifier(df, image_shape, classifier=SVC(
+    kernel='rbf', C=1))
+print(conf_mat)
+print("MEAN ACCURACY:", (conf_mat[0][0] + conf_mat[1][1])/np.sum(conf_mat))
+"""
+
+OUTPUT:
+MEAN ACCURACY: 0.9153846153846152
 
 """
 
@@ -326,7 +377,7 @@ params = {
     'colsample_bytree': 0.35,
     'subsample': 0.75
     }
-print("USING VGG16 FEATURE EXTRACTION:")
+
 conf_mat = use_vgg16_with_classifier(df["x"].values, df["y"].values,
                                      image_shape, trainable=True,
                                      classifier=xgb.XGBClassifier(**params))
@@ -335,7 +386,7 @@ print("MEAN ACCURACY:", (conf_mat[0][0] + conf_mat[1][1])/np.sum(conf_mat))
 """
 
 OUTPUT:
-MEAN ACCURACY: 0.9115384615384616
+MEAN ACCURACY: 0.9038461538461539
 
 """
 
@@ -355,7 +406,7 @@ params = {
     'colsample_bytree': 0.35,
     'subsample': 0.75
     }
-print("USING VGG16 FEATURE EXTRACTION:")
+
 conf_mat = use_vgg16_with_classifier(df["x"].values, df["y"].values,
                                      image_shape, trainable=True,
                                      classifier=xgb.XGBClassifier(**params))
@@ -364,7 +415,7 @@ print("MEAN ACCURACY:", (conf_mat[0][0] + conf_mat[1][1])/np.sum(conf_mat))
 """
 
 OUTPUT:
-MEAN ACCURACY: 0.9153846153846152
+MEAN ACCURACY: 0.8999999999999999
 
 """
 
@@ -384,7 +435,7 @@ params = {
     'colsample_bytree': 0.7,
     'subsample': 0.8
     }
-print("USING VGG16 FEATURE EXTRACTION:")
+
 conf_mat = use_vgg16_with_classifier(df["x"].values, df["y"].values,
                                      image_shape,
                                      classifier=xgb.XGBClassifier(**params))
@@ -393,7 +444,28 @@ print("MEAN ACCURACY:", (conf_mat[0][0] + conf_mat[1][1])/np.sum(conf_mat))
 """
 
 OUTPUT:
-MEAN ACCURACY:
+MEAN ACCURACY: 0.8961538461538461
 
 """
-# %%
+
+# %% RUN MODEL WITH TRAINABLE VGG16 AND KNN WITH CV=5
+
+df["x"] = df["image"].apply(lambda img: np.array(
+    img.resize((200, 200), pil.Image.ANTIALIAS)))
+image_shape = df["x"].iloc[0].shape
+params = {
+    'n_neighbors': 3,
+    'metric': 'manhattan'
+    }
+
+conf_mat = use_vgg16_with_classifier(df["x"].values, df["y"].values,
+                                     image_shape, trainable=True,
+                                     classifier=KNeighborsClassifier(**params))
+print(conf_mat)
+print("MEAN ACCURACY:", (conf_mat[0][0] + conf_mat[1][1])/np.sum(conf_mat))
+"""
+
+OUTPUT:
+MEAN ACCURACY: 0.9076923076923078
+
+"""
